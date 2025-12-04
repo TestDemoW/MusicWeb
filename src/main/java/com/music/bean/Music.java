@@ -6,6 +6,8 @@ public class Music {
     private String artist;
     private String filePath;
     private int playCount;
+    private int status; // 0待审, 1通过
+    private String uploaderName;
 
     public Music() {}
 
@@ -19,4 +21,8 @@ public class Music {
     public void setFilePath(String filePath) { this.filePath = filePath; }
     public int getPlayCount() { return playCount; }
     public void setPlayCount(int playCount) { this.playCount = playCount; }
+    public int getStatus() { return status; }
+    public void setStatus(int status) { this.status = status; }
+    public String getUploaderName() { return uploaderName; }
+    public void setUploaderName(String uploaderName) { this.uploaderName = uploaderName; }
 }

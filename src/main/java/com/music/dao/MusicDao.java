@@ -8,7 +8,7 @@ import java.util.List;
 
 public class MusicDao {
 
-    // 1. 通用分页查询 (升级：联表查询昵称)
+    // 1. 通用分页查询 (普通榜单)
     public List<Music> getMusicList(String type, int page, int size) {
         List<Music> list = new ArrayList<>();
         int offset = (page - 1) * size;
@@ -20,7 +20,6 @@ public class MusicDao {
         }
 
         try (Connection conn = DBUtil.getConn()) {
-            // ✨ 重点修改：关联 users 表获取 nickname
             String sql = "SELECT m.*, u.nickname FROM music m " +
                     "LEFT JOIN users u ON m.uploader_name = u.username " +
                     "WHERE m.status=1 ORDER BY " + orderBy + " LIMIT ?, ?";
@@ -34,7 +33,35 @@ public class MusicDao {
         return list;
     }
 
-    // 2. 查询总数
+    // ✨✨✨ 2. 【新增】搜索功能 (支持搜歌名、歌手、UP主昵称、UP主账号) ✨✨✨
+    public List<Music> searchMusic(String keyword, int page, int size) {
+        List<Music> list = new ArrayList<>();
+        int offset = (page - 1) * size;
+
+        try (Connection conn = DBUtil.getConn()) {
+            // 逻辑：歌名 像... OR 歌手 像... OR UP主昵称 像...
+            String sql = "SELECT m.*, u.nickname FROM music m " +
+                    "LEFT JOIN users u ON m.uploader_name = u.username " +
+                    "WHERE m.status=1 AND " +
+                    "(m.title LIKE ? OR m.artist LIKE ? OR m.uploader_name LIKE ? OR u.nickname LIKE ?) " +
+                    "ORDER BY m.id DESC LIMIT ?, ?";
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+            String likeKey = "%" + keyword + "%";
+            ps.setString(1, likeKey);
+            ps.setString(2, likeKey);
+            ps.setString(3, likeKey);
+            ps.setString(4, likeKey);
+            ps.setInt(5, offset);
+            ps.setInt(6, size);
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) { list.add(mapResultToMusic(rs)); }
+        } catch (Exception e) { e.printStackTrace(); }
+        return list;
+    }
+
+    // 3. 查询总数 (普通)
     public int getMusicCount() {
         int count = 0;
         try (Connection conn = DBUtil.getConn()) {
@@ -46,7 +73,29 @@ public class MusicDao {
         return count;
     }
 
-    // 3. 获取个人作品 (升级：联表)
+    // ✨✨✨ 4. 【新增】查询搜索结果总数 (用于搜索分页) ✨✨✨
+    public int getSearchCount(String keyword) {
+        int count = 0;
+        try (Connection conn = DBUtil.getConn()) {
+            String sql = "SELECT count(*) FROM music m " +
+                    "LEFT JOIN users u ON m.uploader_name = u.username " +
+                    "WHERE m.status=1 AND " +
+                    "(m.title LIKE ? OR m.artist LIKE ? OR m.uploader_name LIKE ? OR u.nickname LIKE ?)";
+
+            PreparedStatement ps = conn.prepareStatement(sql);
+            String likeKey = "%" + keyword + "%";
+            ps.setString(1, likeKey);
+            ps.setString(2, likeKey);
+            ps.setString(3, likeKey);
+            ps.setString(4, likeKey);
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) count = rs.getInt(1);
+        } catch (Exception e) { e.printStackTrace(); }
+        return count;
+    }
+
+    // 5. 获取个人作品
     public List<Music> getMusicByUploader(String uploaderName) {
         List<Music> list = new ArrayList<>();
         try (Connection conn = DBUtil.getConn()) {
@@ -61,12 +110,12 @@ public class MusicDao {
         return list;
     }
 
-    // 4. 获取随机推荐 (复用)
+    // 6. 随机推荐
     public List<Music> getRandomMusicList(int size) {
         return getMusicList("random", 1, size);
     }
 
-    // 5. 辅助方法 (升级：封装昵称)
+    // 7. 辅助映射
     private Music mapResultToMusic(ResultSet rs) throws SQLException {
         Music m = new Music();
         m.setId(rs.getInt("id"));
@@ -76,21 +125,15 @@ public class MusicDao {
         m.setPlayCount(rs.getInt("play_count"));
         m.setStatus(rs.getInt("status"));
         m.setUploaderName(rs.getString("uploader_name"));
-
-        // ✨ 处理昵称：如果查到了昵称就用，查不到(或为空)就回退用 username
         String nick = rs.getString("nickname");
         m.setUploaderNickname((nick != null && !nick.isEmpty()) ? nick : m.getUploaderName());
-
         String d = rs.getString("duration");
         m.setDuration(d == null ? "00:00" : d);
-
-        // 尝试获取 upload_time，如果没有这一列(比如某些旧查询)则跳过
         try { m.setUploadTime(rs.getString("upload_time")); } catch (SQLException e) {}
-
         return m;
     }
 
-    // --- 后台/其他方法 ---
+    // --- 后台方法 (保持不变) ---
     public void saveMusic(Music m) {
         try (Connection conn = DBUtil.getConn()) {
             String sql = "INSERT INTO music(title, artist, file_path, status, uploader_name, duration) VALUES(?, ?, ?, 0, ?, ?)";
@@ -103,20 +146,6 @@ public class MusicDao {
             ps.executeUpdate();
         } catch (Exception e) { e.printStackTrace(); }
     }
-
-    public Music getMusicById(int id) {
-        Music m = null;
-        try (Connection conn = DBUtil.getConn()) {
-            // 单个查询也要联表，不然播放页显示不出昵称
-            String sql = "SELECT m.*, u.nickname FROM music m LEFT JOIN users u ON m.uploader_name = u.username WHERE m.id = ?";
-            PreparedStatement ps = conn.prepareStatement(sql);
-            ps.setInt(1, id);
-            ResultSet rs = ps.executeQuery();
-            if(rs.next()){ m = mapResultToMusic(rs); }
-        } catch (Exception e) { e.printStackTrace(); }
-        return m;
-    }
-
     public void addPlayCount(int id) {
         try (Connection conn = DBUtil.getConn()) {
             String sql = "UPDATE music SET play_count = play_count + 1 WHERE id = ?";
@@ -125,8 +154,17 @@ public class MusicDao {
             ps.executeUpdate();
         } catch (Exception e) { e.printStackTrace(); }
     }
-
-    // 管理员用的列表暂时可以不显示昵称，或者你也想加也可以加，这里保持原样简单点
+    public Music getMusicById(int id) {
+        Music m = null;
+        try (Connection conn = DBUtil.getConn()) {
+            String sql = "SELECT m.*, u.nickname FROM music m LEFT JOIN users u ON m.uploader_name = u.username WHERE m.id = ?";
+            PreparedStatement ps = conn.prepareStatement(sql);
+            ps.setInt(1, id);
+            ResultSet rs = ps.executeQuery();
+            if(rs.next()){ m = mapResultToMusic(rs); }
+        } catch (Exception e) { e.printStackTrace(); }
+        return m;
+    }
     public List<Music> getPendingMusic() {
         List<Music> list = new ArrayList<>();
         try (Connection conn = DBUtil.getConn()) {

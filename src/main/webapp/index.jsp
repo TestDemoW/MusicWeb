@@ -25,7 +25,7 @@
             flex-direction: column;
         }
 
-        /* 顶部导航栏 (渐变色) */
+        /* 顶部导航栏 */
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px 40px;
@@ -54,6 +54,22 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
 
+        /* 搜索框 */
+        .search-box {
+            display: flex; align-items: center;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 5px 15px;
+            border: 1px solid rgba(255,255,255,0.3);
+            width: 220px;
+        }
+        .search-box input {
+            background: transparent; border: none; outline: none;
+            color: white; font-size: 13px; width: 100%;
+        }
+        .search-box input::placeholder { color: rgba(255,255,255,0.7); }
+        .search-btn { cursor: pointer; color: white; font-size: 14px; border:none; background:transparent;}
+
         /* 用户面板 & GitHub按钮 */
         .user-panel { font-size: 14px; display: flex; align-items: center; gap: 15px; }
         .user-panel a { color: rgba(255,255,255,0.9); font-weight: 500; }
@@ -61,7 +77,7 @@
 
         .btn-github {
             background: #333; color: white !important;
-            padding: 6px 12px; border-radius: 4px; font-size: 12px;
+            padding: 5px 10px; border-radius: 4px; font-size: 12px;
             display: flex; align-items: center; gap: 5px;
             border: 1px solid #555; text-decoration: none !important;
         }
@@ -74,7 +90,7 @@
         }
         .btn-upload:hover { background: #f0f0f0; }
 
-        /* V5.0 Tabs 导航条 */
+        /* Tabs 导航条 */
         .tabs { display: flex; border-bottom: 1px solid #eee; padding: 0 20px; margin-top: 20px; }
         .tab-item { padding: 15px 25px; cursor: pointer; color: #666; font-weight: bold; border-bottom: 3px solid transparent; font-size: 16px; display: block; }
         .tab-item:hover { color: #764ba2; }
@@ -96,11 +112,10 @@
         /* 按钮 */
         .btn-play { color: #fff; background: #007bff; padding: 5px 15px; border-radius: 20px; font-size: 13px; box-shadow: 0 2px 5px rgba(0,114,255,0.3); }
         .btn-play:hover { background: #0056b3; box-shadow: 0 4px 8px rgba(0,114,255,0.4); }
-
         .btn-story { color: #6f42c1; background: #f3f0ff; padding: 5px 12px; border-radius: 4px; font-size: 13px; margin-right: 10px; }
         .btn-story:hover { background: #e0d4fc; }
 
-        /* V5.0 分页条 */
+        /* 分页条 */
         .pagination { display: flex; justify-content: center; padding: 30px; gap: 10px; align-items: center; margin-top: auto; }
         .page-link { padding: 8px 16px; border: 1px solid #ddd; border-radius: 4px; background: white; color: #666; }
         .page-link.active { background: #764ba2; color: white; border-color: #764ba2; }
@@ -117,6 +132,8 @@
         }
         .footer a { color: #aaa; }
         .footer a:hover { color: #764ba2; }
+
+        .search-title { padding: 20px; font-size: 18px; color: #764ba2; border-bottom: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -125,13 +142,18 @@
     <div class="header">
         <div class="brand">
             <h1>Echo · 回声</h1>
-            <span class="slogan">念念不忘，必有回响 | 独立音乐创作平台</span>
+            <span class="slogan">念念不忘，必有回响</span>
         </div>
 
         <div class="clock-box">
             <span style="font-size: 16px;">🕒</span>
             <span id="currentTime">Loading...</span>
         </div>
+
+        <form action="index" method="get" class="search-box">
+            <input type="text" name="keyword" placeholder="搜歌名 / 歌手 / UP主..." value="<%= request.getParameter("keyword")!=null?request.getParameter("keyword"):"" %>">
+            <button type="submit" class="search-btn">🔍</button>
+        </form>
 
         <div class="user-panel">
             <a href="https://github.com/TestDemoW/MusicWeb" target="_blank" class="btn-github">
@@ -162,12 +184,22 @@
         </div>
     </div>
 
-    <% String currTab = (String)request.getAttribute("currTab"); %>
+    <%
+        String currTab = (String)request.getAttribute("currTab");
+        String keyword = (String)request.getAttribute("keyword");
+        Boolean isSearch = (Boolean)request.getAttribute("isSearch");
+        if(isSearch == null) isSearch = false;
+    %>
+
+    <% if(isSearch) { %>
+    <div class="search-title">🔍 "<strong><%= keyword %></strong>" 的搜索结果：<a href="index" style="font-size:12px; float:right;">[清除搜索]</a></div>
+    <% } else { %>
     <div class="tabs">
         <a href="index?tab=hot" class="tab-item <%= "hot".equals(currTab)?"active":"" %>">🔥 热门榜单</a>
         <a href="index?tab=new" class="tab-item <%= "new".equals(currTab)?"active":"" %>">✨ 最新发布</a>
         <a href="index?tab=random" class="tab-item <%= "random".equals(currTab)?"active":"" %>">🎲 猜你喜欢</a>
     </div>
+    <% } %>
 
     <div class="content-area">
         <% List<Music> list = (List<Music>)request.getAttribute("list");
@@ -191,8 +223,8 @@
         </div>
         <% }} else { %>
         <div style="text-align:center; padding: 60px; color: #999;">
-            <h3>🎼 还没有回声...</h3>
-            <p>暂无数据，快去发布第一首原创音乐，点亮这个社区。</p>
+            <h3>👻 哎呀，什么也没找到...</h3>
+            <p>换个关键词试试？或者 <a href="index">返回首页</a></p>
         </div>
         <% } %>
     </div>
@@ -200,16 +232,17 @@
     <%
         int currPage = (Integer)request.getAttribute("currPage");
         int totalPage = (Integer)request.getAttribute("totalPage");
+        String baseUrl = isSearch ? "index?keyword=" + keyword + "&" : "index?tab=" + currTab + "&";
     %>
     <div class="pagination">
         <% if(currPage > 1) { %>
-        <a href="index?tab=<%=currTab%>&page=<%=currPage-1%>" class="page-link">上一页</a>
+        <a href="<%= baseUrl %>page=<%=currPage-1%>" class="page-link">上一页</a>
         <% } %>
 
         <span class="page-link active">第 <%= currPage %> 页 / 共 <%= totalPage %> 页</span>
 
         <% if(currPage < totalPage) { %>
-        <a href="index?tab=<%=currTab%>&page=<%=currPage+1%>" class="page-link">下一页</a>
+        <a href="<%= baseUrl %>page=<%=currPage+1%>" class="page-link">下一页</a>
         <% } %>
     </div>
 
@@ -232,7 +265,9 @@
             String(now.getHours()).padStart(2, '0') + ":" +
             String(now.getMinutes()).padStart(2, '0') + ":" +
             String(now.getSeconds()).padStart(2, '0');
-        document.getElementById('currentTime').innerText = timeStr;
+
+        var el = document.getElementById('currentTime');
+        if(el) el.innerText = timeStr;
     }
     updateTime();
     setInterval(updateTime, 1000);

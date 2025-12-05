@@ -4,35 +4,34 @@ import com.music.bean.Message;
 import com.music.bean.User;
 import com.music.util.DBUtil;
 import java.sql.*;
-import java.text.SimpleDateFormat; // 引入格式化工具
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone; // 引入 TimeZone
 
 public class MessageDao {
 
-    // 1. 保存消息
+    // 保存消息
     public void saveMessage(Message msg) {
-        System.out.println("正在保存消息: " + msg.getContent());
         try (Connection conn = DBUtil.getConn()) {
             String sql = "INSERT INTO messages(sender_id, receiver_id, content) VALUES(?, ?, ?)";
             PreparedStatement ps = conn.prepareStatement(sql);
             ps.setInt(1, msg.getSenderId());
             ps.setInt(2, msg.getReceiverId());
             ps.setString(3, msg.getContent());
-            int rows = ps.executeUpdate();
-            System.out.println("保存结果: " + rows);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            ps.executeUpdate();
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // 2. 获取聊天记录
+    // ✨✨✨ 获取聊天记录 (修复时区问题) ✨✨✨
     public List<Message> getChatHistory(int userId1, int userId2) {
         List<Message> list = new ArrayList<>();
-        // ✨✨✨ 定义北京时间格式化器 ✨✨✨
+
+        // 强制使用 Asia/Shanghai 时区格式化
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+        sdf.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
 
         try (Connection conn = DBUtil.getConn()) {
             String sql = "SELECT m.*, u.username, u.nickname, u.avatar " +
@@ -56,28 +55,25 @@ public class MessageDao {
                 m.setReceiverId(rs.getInt("receiver_id"));
                 m.setContent(rs.getString("content"));
 
-                // ✨✨✨ 修复时间显示逻辑 ✨✨✨
-                // getTimestamp 会自动根据 URL 里的时区转换
                 Timestamp ts = rs.getTimestamp("send_time");
                 if (ts != null) {
+                    // 使用指定了时区的 SDF 进行格式化
                     m.setSendTime(sdf.format(ts));
                 } else {
                     m.setSendTime("");
                 }
 
                 m.setIsRead(rs.getInt("is_read"));
-
                 String nick = rs.getString("nickname");
                 m.setSenderName(nick != null ? nick : rs.getString("username"));
                 m.setSenderAvatar(rs.getString("avatar"));
-
                 list.add(m);
             }
         } catch (Exception e) { e.printStackTrace(); }
         return list;
     }
 
-    // 3. 标记已读
+    // 标记已读
     public void markAsRead(int senderId, int receiverId) {
         try (Connection conn = DBUtil.getConn()) {
             String sql = "UPDATE messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ?";
@@ -88,7 +84,7 @@ public class MessageDao {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // 4. 获取最近联系人
+    // 获取最近联系人
     public List<Map<String, Object>> getRecentContacts(int myId) {
         List<Map<String, Object>> list = new ArrayList<>();
         try (Connection conn = DBUtil.getConn()) {

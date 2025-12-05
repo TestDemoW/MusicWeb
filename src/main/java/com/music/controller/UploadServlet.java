@@ -1,8 +1,11 @@
 package com.music.controller;
 
 import com.music.bean.Music;
-import com.music.bean.User; // 引入 User 类
+import com.music.bean.User;
 import com.music.service.MusicService;
+import org.jaudiotagger.audio.AudioFile;     // 引入
+import org.jaudiotagger.audio.AudioFileIO;  // 引入
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.annotation.WebServlet;
@@ -20,44 +23,52 @@ public class UploadServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         req.setCharacterEncoding("UTF-8");
 
-        // 1. 【新增】检查用户是否登录
+        // 1. 检查登录
         HttpSession session = req.getSession();
         User user = (User) session.getAttribute("user");
-
-        // 如果 Session 里没有 user 对象，说明没登录
         if (user == null) {
-            // 跳转去登录页
             resp.sendRedirect("login.jsp");
-            return; // 结束方法，不再执行后面的上传逻辑
+            return;
         }
 
-        // 2. 获取表单数据
+        // 2. 获取数据
         String title = req.getParameter("title");
         String artist = req.getParameter("artist");
         Part filePart = req.getPart("file");
 
-        // 3. 处理文件保存
+        // 3. 保存文件
         String fileName = UUID.randomUUID().toString() + ".mp3";
         String uploadPath = getServletContext().getRealPath("/uploads");
         File uploadDir = new File(uploadPath);
         if (!uploadDir.exists()) uploadDir.mkdirs();
 
-        filePart.write(uploadPath + File.separator + fileName);
+        String fullPath = uploadPath + File.separator + fileName;
+        filePart.write(fullPath);
 
-        // 4. 封装 Music 对象
+        // 4. ✨✨✨ 解析音频时长 (核心修复) ✨✨✨
+        String durationStr = "00:00";
+        try {
+            File mp3File = new File(fullPath);
+            AudioFile audioFile = AudioFileIO.read(mp3File);
+            int seconds = audioFile.getAudioHeader().getTrackLength();
+            // 格式化为 mm:ss
+            durationStr = String.format("%02d:%02d", seconds / 60, seconds % 60);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("音频解析失败，使用默认时长");
+        }
+
+        // 5. 封装对象
         Music m = new Music();
         m.setTitle(title);
         m.setArtist(artist);
         m.setFilePath("uploads/" + fileName);
-
-        // 5. 【新增】设置上传者的名字
-        // 这样数据库里就能知道这首歌是谁传的了
         m.setUploaderName(user.getUsername());
+        m.setDuration(durationStr); // 设置计算好的时长
 
-        // 6. 调用 Service 保存 (Service 会调用 DAO，默认把 status 设为 0 待审核)
+        // 6. 保存到数据库
         service.upload(m);
 
-        // 7. 上传成功，跳回首页
         resp.sendRedirect("index");
     }
 }

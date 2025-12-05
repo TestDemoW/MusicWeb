@@ -1,14 +1,8 @@
-<%--
-  Created by IntelliJ IDEA.
-  User: w
-  Date: 2025/12/5
-  Time: 22:34
-  To change this template use File | Settings | File Templates.
---%>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="com.music.bean.User" %>
 <%@ page import="com.music.bean.Message" %>
 <%@ page import="java.util.List" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -19,22 +13,30 @@
         .chat-header { padding: 15px 20px; border-bottom: 1px solid #eee; background: #f9f9f9; display: flex; justify-content: space-between; align-items: center; }
         .chat-header h3 { margin: 0; font-size: 16px; }
         .chat-header a { text-decoration: none; color: #666; font-size: 14px; }
-
         .chat-body { flex: 1; padding: 20px; overflow-y: auto; background: #fff; }
+
+        /* 消息行基础样式 */
         .message-row { display: flex; margin-bottom: 20px; align-items: flex-start; }
-        .message-row.self { flex-direction: row-reverse; }
+
+        /* 对方的消息 (左侧) */
+        .message-row.left { flex-direction: row; }
+
+        /* 自己的消息 (右侧) */
+        .message-row.right { flex-direction: row-reverse; }
 
         .avatar { width: 40px; height: 40px; border-radius: 50%; margin: 0 10px; }
 
-        /* 消息内容包装器 */
         .msg-content { display: flex; flex-direction: column; max-width: 60%; }
-        .message-row.self .msg-content { align-items: flex-end; } /* 自己发的消息靠右对齐 */
+        .message-row.right .msg-content { align-items: flex-end; }
 
-        .bubble { padding: 10px 15px; border-radius: 10px; font-size: 14px; line-height: 1.5; position: relative; word-wrap: break-word;}
-        .message-row:not(.self) .bubble { background: #f0f0f0; color: #333; border-top-left-radius: 0; }
-        .message-row.self .bubble { background: #007bff; color: white; border-top-right-radius: 0; }
+        .bubble { padding: 10px 15px; border-radius: 10px; font-size: 14px; line-height: 1.5; word-wrap: break-word; position: relative;}
 
-        /* ✨ 新增：时间样式 ✨ */
+        /* 左侧气泡颜色 */
+        .message-row.left .bubble { background: #f0f0f0; color: #333; border-top-left-radius: 0; }
+
+        /* 右侧气泡颜色 */
+        .message-row.right .bubble { background: #007bff; color: white; border-top-right-radius: 0; }
+
         .time { font-size: 12px; color: #bbb; margin-top: 5px; margin-left: 2px; }
 
         .chat-footer { padding: 15px; border-top: 1px solid #eee; background: #f9f9f9; display: flex; gap: 10px; }
@@ -55,20 +57,31 @@
     </div>
 
     <div class="chat-body" id="msgBox">
-        <%
-            List<Message> list = (List<Message>)request.getAttribute("history");
-            if(list != null) {
-                for(Message m : list) {
-                    boolean isSelf = (m.getSenderId() == current.getId());
-        %>
-        <div class="message-row <%= isSelf ? "self" : "" %>">
-            <img src="<%= m.getSenderAvatar() %>" class="avatar">
-            <div class="msg-content">
-                <div class="bubble"><%= m.getContent() %></div>
-                <div class="time"><%= m.getSendTime() %></div>
-            </div>
-        </div>
-        <% }} %>
+        <c:forEach items="${history}" var="m">
+            <c:choose>
+                <%-- 己方消息 (右侧) --%>
+                <c:when test="${m.senderId == sessionScope.user.id}">
+                    <div class="message-row right">
+                        <img src="${m.senderAvatar}" class="avatar">
+                        <div class="msg-content">
+                            <div class="bubble">${m.content}</div>
+                            <div class="time">${m.sendTime}</div>
+                        </div>
+                    </div>
+                </c:when>
+
+                <%-- 对方消息 (左侧) --%>
+                <c:otherwise>
+                    <div class="message-row left">
+                        <img src="${m.senderAvatar}" class="avatar">
+                        <div class="msg-content">
+                            <div class="bubble">${m.content}</div>
+                            <div class="time">${m.sendTime}</div>
+                        </div>
+                    </div>
+                </c:otherwise>
+            </c:choose>
+        </c:forEach>
     </div>
 
     <div class="chat-footer">
@@ -113,7 +126,8 @@
     function appendMsg(text, isSelf) {
         var box = document.getElementById("msgBox");
         var row = document.createElement("div");
-        row.className = "message-row " + (isSelf ? "self" : "");
+        // 根据 isSelf 决定添加 left 还是 right 类
+        row.className = "message-row " + (isSelf ? "right" : "left");
 
         var img = document.createElement("img");
         img.className = "avatar";
@@ -126,11 +140,14 @@
         bubble.className = "bubble";
         bubble.innerText = text;
 
-        // 获取当前时间
         var timeDiv = document.createElement("div");
         timeDiv.className = "time";
+
+        // 实时消息使用浏览器当前时间
         var now = new Date();
-        timeDiv.innerText = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
+        var mins = String(now.getMinutes()).padStart(2, '0');
+        // 简单显示 HH:mm
+        timeDiv.innerText = now.getHours() + ":" + mins;
 
         contentDiv.appendChild(bubble);
         contentDiv.appendChild(timeDiv);

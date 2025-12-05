@@ -1,10 +1,3 @@
-<%--
-  Created by IntelliJ IDEA.
-  User: w
-  Date: 2025/12/4
-  Time: 23:47
-  To change this template use File | Settings | File Templates.
---%>
 <%@ page contentType="text/html;charset=UTF-8" import="java.util.*,com.music.bean.*" %>
 <!DOCTYPE html>
 <html>
@@ -22,8 +15,6 @@
         .btn-del { color: red; }
         .btn-pass { color: green; font-weight: bold; }
         .btn-dash { background: #6610f2; color: white !important; padding: 8px 15px; border-radius: 5px; font-size: 14px; }
-
-        /* 邀请码表单 */
         .code-form { display: flex; gap: 10px; margin-bottom: 10px; }
         .code-form input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; flex: 1; }
         .code-form button { padding: 8px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
@@ -74,6 +65,60 @@
         <% } %>
     </table>
 
+    <h3>👥 用户管理</h3>
+    <div style="max-height: 300px; overflow-y: auto; margin-bottom: 30px; border: 1px solid #eee;">
+        <table border="0">
+            <thead>
+            <tr>
+                <th style="position: sticky; top: 0;">ID</th>
+                <th style="position: sticky; top: 0;">用户名</th>
+                <th style="position: sticky; top: 0;">昵称</th>
+                <th style="position: sticky; top: 0;">角色</th>
+                <th style="position: sticky; top: 0;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <%
+                List<User> userList = (List<User>)request.getAttribute("userList");
+                User adminUser = (User)session.getAttribute("user"); // 获取当前登录管理员
+                if(userList != null && userList.size() > 0) {
+                    for(User u : userList) {
+            %>
+            <tr>
+                <td><%= u.getId() %></td>
+                <td>
+                    <img src="<%= u.getAvatar() %>" style="width:20px; height:20px; border-radius:50%; vertical-align:middle;">
+                    <%= u.getUsername() %>
+                </td>
+                <td><%= u.getNickname() == null ? "-" : u.getNickname() %></td>
+                <td>
+                    <% if("admin".equals(u.getRole())) { %>
+                    <span style="background: #6610f2; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">管理员</span>
+                    <% } else { %>
+                    <span style="background: #e9ecef; color: #495057; padding: 2px 6px; border-radius: 4px; font-size: 12px;">用户</span>
+                    <% } %>
+                </td>
+                <td>
+                    <a href="admin?action=editUser&id=<%= u.getId() %>" style="color: #007bff; font-weight: bold; margin-right: 10px;">✏️ 编辑</a>
+
+                    <%-- 禁止删除自己 --%>
+                    <% if(u.getId() != adminUser.getId()) { %>
+                    <a href="admin?action=deleteUser&id=<%= u.getId() %>" class="btn-del" onclick="return confirm('⚠️ 警告：删除用户将连带删除他发布的所有音乐、评论和消息！确定吗？')">🗑️ 删除</a>
+                    <% } else { %>
+                    <span style="color:#ccc; cursor:not-allowed;">本人</span>
+                    <% } %>
+                </td>
+            </tr>
+            <%
+                }
+            } else {
+            %>
+            <tr><td colspan="5" style="text-align:center; padding: 20px; color:#999;">暂无用户数据</td></tr>
+            <% } %>
+            </tbody>
+        </table>
+    </div>
+
     <h3>🎵 待审核音乐</h3>
     <table border="0">
         <tr><th>歌名</th><th>上传者</th><th>时长</th><th>操作</th></tr>
@@ -102,7 +147,8 @@
         <tr>
             <td><%=m.getId()%></td>
             <td><%=m.getTitle()%></td>
-            <td><%= m.getStatus()==1 ? "<span style='color:green'>正常</span>" : "<span style='color:orange'>待审</span>" %></td>
+            <td><%= m.getStatus()==1 ?
+                    "<span style='color:green'>正常</span>" : "<span style='color:orange'>待审</span>" %></td>
             <td><a href="admin?action=delete&id=<%=m.getId()%>" class="btn-del">删除</a></td>
         </tr>
         <% } %>

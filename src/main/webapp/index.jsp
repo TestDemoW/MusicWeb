@@ -227,6 +227,8 @@
     // 每秒刷新一次
     setInterval(updateTime, 1000);
 </script>
-
+<jsp:include page="chatbot.jsp" />
 </body>
 </html>
+
+

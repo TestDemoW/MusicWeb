@@ -6,12 +6,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>正在播放 - 校园云音乐</title>
+    <title>正在播放 - Echo · 回声</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.css">
 
     <style>
         body { background: #222; color: #fff; font-family: "Microsoft YaHei", sans-serif; margin: 0; padding-top: 50px; }
-        .container { width: 700px; margin: 0 auto; padding-bottom: 50px; }
+        .container { width: 700px; margin: 0 auto; padding-bottom: 80px; }
 
         /* 播放器主体卡片 */
         .player-card { background: #333; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative;}
@@ -56,8 +56,20 @@
         .btn-send:hover { background: #d60045; transform: scale(1.05); }
 
         /* 按钮通用 */
-        .back-btn { display: inline-block; color: #aaa; text-decoration: none; border: 1px solid #555; padding: 8px 20px; border-radius: 20px; transition:0.3s; font-size: 14px; text-align: center;}
-        .back-btn:hover { background: white; color: black; }
+        .action-bar { text-align:center; margin-top:30px; display: flex; justify-content: center; gap: 15px; }
+        .btn-action {
+            display: inline-block; color: #fff; text-decoration: none;
+            border: 1px solid transparent; padding: 8px 20px;
+            border-radius: 20px; transition:0.3s; font-size: 14px; text-align: center; cursor: pointer;
+        }
+        .btn-back { border-color: #555; color: #aaa; }
+        .btn-back:hover { background: white; color: black; }
+
+        .btn-download { background: #28a745; border-color: #28a745; }
+        .btn-download:hover { background: #218838; }
+
+        .btn-share { background: #6f42c1; border-color: #6f42c1; }
+        .btn-share:hover { background: #5a32a3; }
 
         /* 评论区样式 */
         hr { border: 0; border-top: 1px solid #444; margin: 30px 0; }
@@ -96,9 +108,10 @@
             <button class="btn-send" onclick="sendDanmaku()">发射</button>
         </div>
 
-        <div style="text-align:center; margin-top:30px;">
-            <a href="index" class="back-btn">← 返回列表</a>
-            <a href="download?id=<%= m.getId() %>" class="back-btn" style="background: #28a745; color: white; border-color: #28a745; margin-left: 15px;">⬇️ 下载文件</a>
+        <div class="action-bar">
+            <a href="index" class="btn-action btn-back">← 返回列表</a>
+            <a href="download?id=<%= m.getId() %>" class="btn-action btn-download">⬇️ 下载</a>
+            <button onclick="copyShareLink()" class="btn-action btn-share">🔗 分享</button>
         </div>
 
         <hr>
@@ -129,11 +142,12 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aplayer/1.10.1/APlayer.min.js"></script>
+
 <script>
     var musicId = "<%= m.getId() %>";
     var contextPath = "<%= request.getContextPath() %>";
 
-    // 1. 初始化 APlayer
+    // ==== 1. 初始化 APlayer ====
     const ap = new APlayer({
         container: document.getElementById('aplayer'),
         theme: '#ff0055',
@@ -146,13 +160,13 @@
         }]
     });
 
-    // 2. 加载历史弹幕 (B站逻辑)
+    // ==== 2. 加载历史弹幕 ====
     var danmakuData = [];
     fetch("danmakuList?musicId=" + musicId).then(res => res.json()).then(data => {
         danmakuData = data;
     });
 
-    // 3. 监听播放时间，发射历史弹幕
+    // ==== 3. 监听播放时间，发射历史弹幕 ====
     var lastTime = 0;
     ap.on('timeupdate', function () {
         var currentTime = ap.audio.currentTime;
@@ -165,16 +179,16 @@
     });
     ap.on('seeked', function () { lastTime = ap.audio.currentTime; });
 
-    // 4. WebSocket 连接
+    // ==== 4. WebSocket 连接 ====
     var wsUrl = "ws://" + window.location.host + contextPath + "/danmaku/" + musicId;
     var ws = null;
     try {
         ws = new WebSocket(wsUrl);
-        ws.onopen = function() { showDanmaku("系统提示：连接成功！"); };
+        ws.onopen = function() { showDanmaku("系统提示：弹幕连接成功！"); };
         ws.onmessage = function(event) {
             var data = JSON.parse(event.data);
             var now = ap.audio.currentTime;
-            // 如果是实时发送的(时间差很小)，直接显示；否则只存入缓存
+            // 如果是实时发送的(时间差很小)，直接显示
             if (Math.abs(data.time - now) < 2) {
                 showDanmaku(data.text, true);
             }
@@ -182,21 +196,20 @@
         };
     } catch (e) { console.error("WS Error", e); }
 
-    // 5. 发送弹幕
+    // ==== 5. 发送弹幕 ====
     function sendDanmaku() {
         var input = document.getElementById("dmText");
         var text = input.value.trim();
         if(text && ws && ws.readyState === WebSocket.OPEN) {
             var payload = { text: text, time: ap.audio.currentTime };
             ws.send(JSON.stringify(payload));
-            // ✨【关键修复】✨：删除了 showDanmaku(text, true);
-            // 现在只负责发送给服务器，等待服务器广播回来再显示，彻底解决双重弹幕问题。
+            // 本地不显示，等待广播，防止重影
             input.value = "";
         } else { alert("连接断开"); }
     }
     document.getElementById("dmText").addEventListener("keypress", function(e){ if(e.key === 'Enter') sendDanmaku(); });
 
-    // 6. 弹幕动画
+    // ==== 6. 弹幕动画 ====
     function showDanmaku(text, isSelf) {
         var container = document.getElementById("danmaku-container");
         var span = document.createElement("span");
@@ -212,9 +225,33 @@
         container.appendChild(span);
         setTimeout(function() { span.remove(); }, 8000);
     }
+
+    // ==== 7. 一键分享功能 ====
+    function copyShareLink() {
+        const url = window.location.href;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(url).then(() => {
+                alert("✅ 链接已复制！快去分享给好友吧：\n" + url);
+            }).catch(err => {
+                alert("复制失败，请手动复制地址栏链接");
+            });
+        } else {
+            // 兼容旧浏览器
+            var tempInput = document.createElement("input");
+            tempInput.value = url;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            alert("✅ 链接已复制！");
+        }
+    }
 </script>
+
 <% } else { %>
 <div style="text-align:center; margin-top:100px;"><h2>🚫 未找到该音乐</h2><a href="index">返回首页</a></div>
 <% } %>
+
+<jsp:include page="chatbot.jsp" />
 </body>
 </html>

@@ -248,11 +248,11 @@
 
     <div class="footer">
         <p>&copy; 2025 deepsuccess.top | Echo Music Community. All Rights Reserved.</p>
-        <p>
-            <a href="https://beian.miit.gov.cn/" target="_blank">京ICP备88888888号-1</a>
-            &nbsp;|&nbsp;
-            <a href="#">公网安备 1101080202xxxx号</a>
-        </p>
+<%--        <p>--%>
+<%--            <a href="https://beian.miit.gov.cn/" target="_blank">京ICP备88888888号-1</a>--%>
+<%--            &nbsp;|&nbsp;--%>
+<%--            <a href="#">公网安备 1101080202xxxx号</a>--%>
+<%--        </p>--%>
     </div>
 </div>
 
